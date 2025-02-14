@@ -1,97 +1,93 @@
-import streamlit as st
 import os
-import shutil
+
+# Set environment variables *before* anything else
+os.environ['STREAMLIT_WATCH_FILE'] = 'false'  # Disable file watcher (CRITICAL!)
+os.environ['TORCH_HOME'] = '/home/appuser/.torch' # Set Torch Home
+
+import streamlit as st
 import docx
-import re
-import torch
-from transformers import pipeline
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 from collections import defaultdict
 import nltk
-from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize
 
-# Download required nltk resources
-punkt_path = '/home/appuser/nltk_data/tokenizers/punkt'
-if not os.path.exists(punkt_path):
-    os.makedirs(punkt_path, exist_ok=True)
-    nltk.download('punkt')
+# NLTK Downloads (using try-except and download_dir)
+try:
+    nltk.data.find('tokenizers/punkt')
 except LookupError:
-    nltk.download('punkt')
-stopwords_path = '/home/appuser/nltk_data/corpora/stopwords'
-if not os.path.exists(stopwords_path):
-    os.makedirs(stopwords_path, exist_ok=True)
-    nltk.download('stopwords')
+    nltk.download('punkt', download_dir='/home/appuser/nltk_data')
+try:
+    nltk.data.find('corpora/stopwords')
 except LookupError:
-    nltk.download('stopwords')
+    nltk.download('stopwords', download_dir='/home/appuser/nltk_data')
 
-# Load a pre-trained sentiment analysis model
-sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english", device=0 if torch.cuda.is_available() else -1 )
 
-# Load a pre-trained toxicity detection model
-toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target", device=0 if torch.cuda.is_available() else -1 )
+@st.cache_resource  # Cache model loading (essential)
+def load_models():
+    sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english", device=0 if torch.cuda.is_available() else -1)  # Specify model!
+    toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target", device=0 if torch.cuda.is_available() else -1)  # Specify model!
+    gpt_model_name = "facebook/bart-large-cnn"
+    tokenizer = AutoTokenizer.from_pretrained(gpt_model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(gpt_model_name)
+    return sentiment_analyzer, toxicity_analyzer, tokenizer, model
 
-# Example replacement suggestions using GPT-based rewriting
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
-gpt_model_name = "facebook/bart-large-cnn"
-tokenizer = AutoTokenizer.from_pretrained(gpt_model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(gpt_model_name)
-
+sentiment_analyzer, toxicity_analyzer, tokenizer, model = load_models()
 
 def analyze_text(text):
     flagged_sections = defaultdict(list)
     sentiment_scores = sentiment_analyzer(text)
     toxicity_scores = toxicity_analyzer(text)
-    
+
     sentences = sent_tokenize(text)
     for sent in sentences:
         toxicity = toxicity_analyzer(sent)
-        if toxicity[0]['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
-            flagged_sections[sent].append(toxicity[0]['score'])
-    
+        if toxicity['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
+            flagged_sections[sent].append(toxicity['score'])
+
     return flagged_sections, sentiment_scores, toxicity_scores
 
-
 def highlight_text(text, flagged_sections):
-    """Highlight flagged words in the text."""
     highlighted_text = text
     offset = 0
     for phrase, scores in flagged_sections.items():
         idx = text.find(phrase)
-        if idx != -1:
+        if idx!= -1:
             idx += offset
             highlighted_text = (
                 highlighted_text[:idx]
                 + f' **[{phrase}]** '
                 + highlighted_text[idx + len(phrase):]
             )
-            offset += 6  # Adjust for markdown bold tags
-    
+            offset += 9  # Correct offset
+
     return highlighted_text
 
-
 def suggest_rewording(text):
-    """Use GPT to rephrase text in a constructive manner."""
     inputs = tokenizer("Summarize: " + text, return_tensors="pt", max_length=512, truncation=True)
-    summary_ids = model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
-    reworded_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-    return reworded_text
-
+    try:
+        summary_ids = model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
+        reworded_text = tokenizer.decode(summary_ids, skip_special_tokens=True)  # Decode the first generated ID
+        return reworded_text
+    except RuntimeError as e:
+        if "CUDA out of memory" in str(e):
+            st.error("Text too long for summarization. Please shorten it.")
+            return "Error: Text too long."
+        else:
+            raise  # Re-raise other RuntimeErrors
 
 def extract_text_from_docx(docx_file):
-    """Extract text from a Word document."""
-    doc = docx.Document(docx_file)
-    text = "\n".join([para.text for para in doc.paragraphs])
-    return text
-
-os.environ['STREAMLIT_WATCH_FILE'] = 'false'
-os.environ['TORCH_HOME'] = '/home/appuser/.torch'  # Set Torch Home to avoid permission issues  # Disable Streamlit file watcher to prevent Torch issues
+    try:
+        doc = docx.Document(docx_file)
+        text = "\n".join([para.text for para in doc.paragraphs])
+        return text
+    except docx.opc.exceptions.PackageNotFoundError:
+        st.error("Invalid.docx file.")
+        return None  # Return None if file is invalid
 
 # Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
 st.write("Ensure submissions are constructive and free from aggressive or hostile language using AI.")
 
-# User input options
 input_option = st.radio("Choose input method:", ("Text Box", "Upload Word Document"))
 
 if input_option == "Text Box":
@@ -101,40 +97,41 @@ if input_option == "Text Box":
             flagged_sections, sentiment_scores, toxicity_scores = analyze_text(user_text)
             highlighted_text = highlight_text(user_text, flagged_sections)
             reworded_text = suggest_rewording(user_text)
-            
+
             st.markdown("### Highlighted Text")
             st.markdown(highlighted_text)
-            
+
             st.markdown("### Sentiment Analysis")
             st.write(sentiment_scores)
-            
+
             st.markdown("### Toxicity Analysis")
             st.write(toxicity_scores)
-            
+
             st.markdown("### Suggested Rewording")
             st.write(reworded_text)
         else:
             st.warning("Please enter some text to analyze.")
 
 elif input_option == "Upload Word Document":
-    uploaded_file = st.file_uploader("Upload a .docx file", type=["docx"])
+    uploaded_file = st.file_uploader("Upload a.docx file", type=["docx"])
     if uploaded_file is not None:
         user_text = extract_text_from_docx(uploaded_file)
-        flagged_sections, sentiment_scores, toxicity_scores = analyze_text(user_text)
-        highlighted_text = highlight_text(user_text, flagged_sections)
-        reworded_text = suggest_rewording(user_text)
-        
-        st.markdown("### Extracted Text")
-        st.text_area("Document Content", user_text, height=200)
-        
-        st.markdown("### Highlighted Text")
-        st.markdown(highlighted_text)
-        
-        st.markdown("### Sentiment Analysis")
-        st.write(sentiment_scores)
-        
-        st.markdown("### Toxicity Analysis")
-        st.write(toxicity_scores)
-        
-        st.markdown("### Suggested Rewording")
-        st.write(reworded_text)
+        if user_text:  # Check if docx extraction was successful
+            flagged_sections, sentiment_scores, toxicity_scores = analyze_text(user_text)
+            highlighted_text = highlight_text(user_text, flagged_sections)
+            reworded_text = suggest_rewording(user_text)
+
+            st.markdown("### Extracted Text")
+            st.text_area("Document Content", user_text, height=200)
+
+            st.markdown("### Highlighted Text")
+            st.markdown(highlighted_text)
+
+            st.markdown("### Sentiment Analysis")
+            st.write(sentiment_scores)
+
+            st.markdown("### Toxicity Analysis")
+            st.write(toxicity_scores)
+
+            st.markdown("### Suggested Rewording")
+            st.write(reworded_text)
