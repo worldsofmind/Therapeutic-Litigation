@@ -1,14 +1,11 @@
 import streamlit as st
 import os
-import shutil
 import docx
-import re
 import torch
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 from collections import defaultdict
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.corpus import stopwords
 
 # Set Torch Home for persistent caching
 os.environ['TORCH_HOME'] = '/home/appuser/.torch'  # Or any persistent directory
@@ -17,13 +14,13 @@ os.environ['TORCH_HOME'] = '/home/appuser/.torch'  # Or any persistent directory
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
-    nltk.download('punkt', quiet=True) # Suppress download messages
+    nltk.download('punkt', quiet=True)
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
-    nltk.download('stopwords', quiet=True) # Suppress download messages
+    nltk.download('stopwords', quiet=True)
 
-@st.cache_resource  # Cache the models
+@st.cache_resource
 def load_models():
     sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english", device=0 if torch.cuda.is_available() else -1)
     toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target", device=0 if torch.cuda.is_available() else -1)
@@ -36,19 +33,20 @@ sentiment_analyzer, toxicity_analyzer, tokenizer, model = load_models()
 
 def analyze_text(text):
     flagged_words = defaultdict(list)
-    sentiment_scores =
-    toxicity_scores =
+    sentiment_scores =  # Initialize as an empty list
+    toxicity_scores =    # Initialize as an empty list
 
     sentences = sent_tokenize(text)
     for sent in sentences:
-        sentiment = sentiment_analyzer(sent)
-        toxicity = toxicity_analyzer(sent)
+        sentiment = sentiment_analyzer(sent)  # Access the first element of the list
+        toxicity = toxicity_analyzer(sent)    # Access the first element of the list
+
         sentiment_scores.append(sentiment)
         toxicity_scores.append(toxicity)
 
         words = word_tokenize(sent)
         for word in words:
-            toxicity_word = toxicity_analyzer(word)
+            toxicity_word = toxicity_analyzer(word)  # Access the first element of the list
             if toxicity_word['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
                 flagged_words[sent].append((word, toxicity_word['score']))
 
@@ -59,7 +57,7 @@ def highlight_text(text, flagged_words):
     offset = 0
     for sentence, flagged_data in flagged_words.items():
         for word, score in flagged_data:
-            idx = text.find(word, text.find(sentence)) # Find within the sentence
+            idx = text.find(word, text.find(sentence))  # Find within the sentence
             if idx!= -1:
                 idx += offset
                 highlighted_text = (
@@ -71,9 +69,9 @@ def highlight_text(text, flagged_words):
     return highlighted_text
 
 def suggest_rewording(text, context=""):  # Added context parameter
-    inputs = tokenizer("Rewrite this in a more neutral and respectful way for a legal document: " + context + " " + text, return_tensors="pt", max_length=1024, truncation=True) # Increased max length
+    inputs = tokenizer("Rewrite this in a more neutral and respectful way for a legal document: " + context + " " + text, return_tensors="pt", max_length=1024, truncation=True)  # Increased max length
     summary_ids = model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
-    reworded_text = tokenizer.decode(summary_ids, skip_special_tokens=True)
+    reworded_text = tokenizer.decode(summary_ids, skip_special_tokens=True)  # Decode the first generated sequence
     return reworded_text
 
 def extract_text_from_docx(docx_file):
