@@ -33,20 +33,20 @@ sentiment_analyzer, toxicity_analyzer, tokenizer, model = load_models()
 
 def analyze_text(text):
     flagged_words = defaultdict(list)
-    sentiment_scores =  # Initialize as an empty list
-    toxicity_scores =    # Initialize as an empty list
+    sentiment_scores =  # Corrected: Initialized as an empty list
+    toxicity_scores =    # Corrected: Initialized as an empty list
 
     sentences = sent_tokenize(text)
     for sent in sentences:
-        sentiment = sentiment_analyzer(sent)  # Access the first element of the list
-        toxicity = toxicity_analyzer(sent)    # Access the first element of the list
+        sentiment = sentiment_analyzer(sent)  # Access the first element
+        toxicity = toxicity_analyzer(sent)    # Access the first element
 
         sentiment_scores.append(sentiment)
         toxicity_scores.append(toxicity)
 
         words = word_tokenize(sent)
         for word in words:
-            toxicity_word = toxicity_analyzer(word)  # Access the first element of the list
+            toxicity_word = toxicity_analyzer(word)  # Access the first element
             if toxicity_word['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
                 flagged_words[sent].append((word, toxicity_word['score']))
 
