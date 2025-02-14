@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import shutil
 import docx
 import re
 import torch
@@ -10,12 +11,16 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 
 # Download required nltk resources
-try:
-    nltk.data.find('tokenizers/punkt')
+punkt_path = '/home/appuser/nltk_data/tokenizers/punkt'
+if not os.path.exists(punkt_path):
+    os.makedirs(punkt_path, exist_ok=True)
+    nltk.download('punkt')
 except LookupError:
     nltk.download('punkt')
-try:
-    nltk.data.find('corpora/stopwords')
+stopwords_path = '/home/appuser/nltk_data/corpora/stopwords'
+if not os.path.exists(stopwords_path):
+    os.makedirs(stopwords_path, exist_ok=True)
+    nltk.download('stopwords')
 except LookupError:
     nltk.download('stopwords')
 
@@ -79,7 +84,8 @@ def extract_text_from_docx(docx_file):
     text = "\n".join([para.text for para in doc.paragraphs])
     return text
 
-os.environ['STREAMLIT_WATCH_FILE'] = 'false'  # Disable Streamlit file watcher to prevent Torch issues
+os.environ['STREAMLIT_WATCH_FILE'] = 'false'
+os.environ['TORCH_HOME'] = '/home/appuser/.torch'  # Set Torch Home to avoid permission issues  # Disable Streamlit file watcher to prevent Torch issues
 
 # Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
