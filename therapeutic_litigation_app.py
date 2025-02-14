@@ -9,8 +9,8 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 
 # Download required nltk resources
-nltk.download('punkt')
-nltk.download('stopwords')
+nltk.data.find('tokenizers/punkt') or nltk.download('punkt')
+nltk.data.find('corpora/stopwords') or nltk.download('stopwords')
 
 # Load a pre-trained sentiment analysis model
 sentiment_analyzer = pipeline("sentiment-analysis")
