@@ -9,14 +9,20 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 
 # Download required nltk resources
-nltk.data.find('tokenizers/punkt') or nltk.download('punkt')
-nltk.data.find('corpora/stopwords') or nltk.download('stopwords')
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
 
 # Load a pre-trained sentiment analysis model
-sentiment_analyzer = pipeline("sentiment-analysis")
+sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 
 # Load a pre-trained toxicity detection model
-toxicity_analyzer = pipeline("text-classification", model="unitary/unbiased-toxic-roberta")
+toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target" )
 
 # Example replacement suggestions using GPT-based rewriting
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
