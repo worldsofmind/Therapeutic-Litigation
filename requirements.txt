@@ -2,4 +2,5 @@ streamlit
 transformers
 torch
 nltk
-python-docx
+docx
+python-docx # This is the correct package name for python-docx
