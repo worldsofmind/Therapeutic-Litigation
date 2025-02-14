@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 import docx
 import re
 import torch
@@ -19,10 +20,10 @@ except LookupError:
     nltk.download('stopwords')
 
 # Load a pre-trained sentiment analysis model
-sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english", device=0 if torch.cuda.is_available() else -1 )
 
 # Load a pre-trained toxicity detection model
-toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target" )
+toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target", device=0 if torch.cuda.is_available() else -1 )
 
 # Example replacement suggestions using GPT-based rewriting
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
@@ -77,6 +78,8 @@ def extract_text_from_docx(docx_file):
     doc = docx.Document(docx_file)
     text = "\n".join([para.text for para in doc.paragraphs])
     return text
+
+os.environ['STREAMLIT_WATCH_FILE'] = 'false'  # Disable Streamlit file watcher to prevent Torch issues
 
 # Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
