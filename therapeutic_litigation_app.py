@@ -7,16 +7,20 @@ from collections import defaultdict
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 
-# ✅ Set a persistent NLTK data directory to avoid missing dependencies
+# 1. Set the NLTK data directory
 NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(NLTK_DATA_DIR, exist_ok=True)
 
-# ✅ Append to nltk.data.path so that it can be found
-nltk.data.path.append(NLTK_DATA_DIR)
+# 2. Set the NLTK_DATA environment variable
+os.environ['NLTK_DATA'] = NLTK_DATA_DIR
 
-# ✅ Force-download Punkt tokenizer and Stopwords if missing
-nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
-nltk.download('stopwords', download_dir=NLTK_DATA_DIR, quiet=True)
+# 3. Download NLTK resources
+try:
+    nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
+    nltk.download('stopwords', download_dir=NLTK_DATA_DIR, quiet=True)
+except Exception as e:
+    st.error(f"Error downloading NLTK data: {e}")
+    st.stop()
 
 @st.cache_resource
 def load_models():
@@ -34,21 +38,18 @@ def analyze_text(text):
     sentiment_scores = []
     toxicity_scores = []
 
-    # ✅ Ensure NLTK can find the Punkt tokenizer before calling sent_tokenize
-    nltk.data.path.append(NLTK_DATA_DIR)
-
-    sentences = sent_tokenize(text)  # Now should work without LookupError
+    sentences = sent_tokenize(text)  # No need to append to nltk.data.path here
 
     for sent in sentences:
-        sentiment = sentiment_analyzer(sent)[0]  # Extract first element
-        toxicity = toxicity_analyzer(sent)[0]  # Extract first element
+        sentiment = sentiment_analyzer(sent)[0]  # Access the first element
+        toxicity = toxicity_analyzer(sent)[0]    # Access the first element
 
         sentiment_scores.append(sentiment)
         toxicity_scores.append(toxicity)
 
         words = word_tokenize(sent)
         for word in words:
-            toxicity_word = toxicity_analyzer(word)[0]
+            toxicity_word = toxicity_analyzer(word)[0]  # Access the first element
             if toxicity_word['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
                 flagged_words[sent].append((word, toxicity_word['score']))
 
@@ -59,21 +60,21 @@ def highlight_text(text, flagged_words):
     offset = 0
     for sentence, flagged_data in flagged_words.items():
         for word, score in flagged_data:
-            idx = text.find(word, text.find(sentence))  # Find within the sentence
+            idx = text.find(word, text.find(sentence))
             if idx != -1:
                 idx += offset
                 highlighted_text = (
                     highlighted_text[:idx]
-                    + f' **[{word}]** '  # Highlight flagged word
+                    + f' **[{word}]** '
                     + highlighted_text[idx + len(word):]
                 )
-                offset += 6  # Adjust for markdown bold tags
+                offset += 6
     return highlighted_text
 
-def suggest_rewording(text, context=""):  
-    inputs = tokenizer("Rewrite this in a more neutral and respectful way for a legal document: " + context + " " + text, return_tensors="pt", max_length=1024, truncation=True)  
+def suggest_rewording(text, context=""):
+    inputs = tokenizer("Rewrite this in a more neutral and respectful way for a legal document: " + context + " " + text, return_tensors="pt", max_length=1024, truncation=True)
     summary_ids = model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
-    reworded_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)  # Extract first output
+    reworded_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
     return reworded_text
 
 def extract_text_from_docx(docx_file):
@@ -81,7 +82,7 @@ def extract_text_from_docx(docx_file):
     text = "\n".join([para.text for para in doc.paragraphs])
     return text
 
-# ✅ Streamlit UI
+# Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
 st.write("Ensure legal submissions are neutral and constructive using AI.")
 
