@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import torch
+import openai
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 
 # ✅ Load sentence tokenizer using Hugging Face (Replaces NLTK)
@@ -29,8 +30,8 @@ if None in [sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model]:
 
 # ✅ Alternative to NLTK: Sentence Splitting with Hugging Face
 def split_into_sentences(text):
-    """Use a transformer tokenizer to split text into sentences."""
-    sentences = text.split('. ')  # Simple rule-based split as fallback
+    """Use a simple sentence-splitting method as a fallback."""
+    sentences = text.split('. ')  
     return sentences
 
 def analyze_text(text):
@@ -44,57 +45,76 @@ def analyze_text(text):
     return results
 
 def rewrite_sentence(sentence):
-    """Use AI to rewrite a single sentence into a neutral and professional tone."""
+    """Use AI to rewrite a single sentence in a neutral and professional tone."""
     try:
-        input_prompt = f"Rewrite this legal sentence in a neutral and professional tone: {sentence}"
+        input_prompt = (
+            f"Rewrite the following legal sentence in a professional, neutral, and respectful tone, "
+            f"removing emotionally charged language while maintaining legal clarity:\n\n"
+            f'"{sentence}"'
+        )
         inputs = tokenizer(input_prompt, return_tensors="pt", max_length=512, truncation=True)
         summary_ids = rewrite_model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id)
         return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
     except Exception as e:
         st.error(f"Error rewriting sentence: {e}")
-        return sentence
+        return sentence  # Return original sentence if rewrite fails
 
 def rewrite_text(text):
-    """Use AI to generate a full neutral and professional rewrite of the input text."""
+    """Use AI to rewrite the full text into a professional, neutral legal version."""
     try:
-        paragraphs = text.split("\n\n")  # ✅ Chunking by paragraphs
-        rewritten_paragraphs = []
-        for paragraph in paragraphs:
-            input_prompt = f"Rewrite the following legal paragraph in a professional and neutral tone: {paragraph}"
-            inputs = tokenizer(input_prompt, return_tensors="pt", max_length=1024, truncation=True)
-            max_len = min(len(paragraph) + 50, 512)
-            summary_ids = rewrite_model.generate(inputs.input_ids, max_length=max_len, min_length=100, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id)
-            rewritten_paragraph = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-            rewritten_paragraphs.append(rewritten_paragraph)
-        return "\n\n".join(rewritten_paragraphs)
+        input_prompt = (
+            f"Rewrite the following legal statement in a neutral, professional, and respectful tone, "
+            f"removing emotionally charged words while preserving the factual and legal argument:\n\n"
+            f"{text}"
+        )
+        inputs = tokenizer(input_prompt, return_tensors="pt", max_length=1024, truncation=True)
+        summary_ids = rewrite_model.generate(
+            inputs.input_ids, max_length=400, min_length=200, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id
+        )
+        rewritten_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        return rewritten_text
     except Exception as e:
         st.error(f"Error rewriting text: {e}")
+        return "An error occurred during rewriting."
+
+# ✅ Use GPT-4 for More Advanced Rewriting
+def rewrite_text_gpt4(text):
+    """Use OpenAI's GPT-4 to rewrite the text in a neutral, professional tone."""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an expert in legal writing and diplomacy."},
+                {"role": "user", "content": f"Rewrite the following legal complaint to be professional, neutral, and persuasive:\n\n{text}"}
+            ],
+            temperature=0.5,
+            max_tokens=500
+        )
+        return response["choices"][0]["message"]["content"]
+    except Exception as e:
+        st.error(f"Error rewriting text with GPT-4: {e}")
         return "An error occurred during rewriting."
 
 # ✅ Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
 st.write("Ensure legal submissions are neutral and constructive using AI.")
 
+# 🔹 Add a dropdown to choose model type
+model_choice = st.radio("Choose rewriting model:", ["Hugging Face (BART)", "GPT-4 (OpenAI)"])
+
 user_text = st.text_area("Enter your legal text for AI analysis:")
 
 if st.button("Analyze & Rewrite"):
     if user_text:
         analysis_results = analyze_text(user_text)
-        rewritten_text = rewrite_text(user_text)
+        
+        # Choose the rewriting model
+        if model_choice == "GPT-4 (OpenAI)":
+            rewritten_text = rewrite_text_gpt4(user_text)
+        else:
+            rewritten_text = rewrite_text(user_text)
 
-        st.markdown("## 🧐 AI Analysis & Sentence-by-Sentence Rewriting")
-        for original_sentence, sentiment_result, toxicity_result in analysis_results:
-            rewritten_sentence = rewrite_sentence(original_sentence)
-
-            if sentiment_result["label"] == "NEGATIVE" or toxicity_result["label"] in ["toxic", "insult", "threat", "identity_hate"]:
-                st.markdown("### 🚨 Issue Identified")
-                st.write(f"**Before:** {original_sentence}")
-                st.write(f"**Sentiment:** {sentiment_result['label']} (Confidence: {sentiment_result['score']:.2f})")
-                st.write(f"**Toxicity:** {toxicity_result['label']} (Confidence: {toxicity_result['score']:.2f})")
-
-                st.markdown("### ✅ AI-Suggested Rewording")
-                st.write(f"**After:** {rewritten_sentence}")
-                st.write("---")
-
+        # ✅ Display AI-rewritten version
         st.markdown("## ✨ Full AI-Rewritten Version")
         st.write(rewritten_text)
+
