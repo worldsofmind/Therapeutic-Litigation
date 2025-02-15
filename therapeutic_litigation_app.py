@@ -7,21 +7,16 @@ from collections import defaultdict
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 
-# Set a persistent NLTK data directory to avoid missing dependencies
+# ✅ Set a persistent NLTK data directory to avoid missing dependencies
 NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(NLTK_DATA_DIR, exist_ok=True)
+
+# ✅ Append to nltk.data.path so that it can be found
 nltk.data.path.append(NLTK_DATA_DIR)
 
-# Ensure necessary NLTK resources are available
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
-
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords', download_dir=NLTK_DATA_DIR, quiet=True)
+# ✅ Force-download Punkt tokenizer and Stopwords if missing
+nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
+nltk.download('stopwords', download_dir=NLTK_DATA_DIR, quiet=True)
 
 @st.cache_resource
 def load_models():
@@ -36,10 +31,14 @@ sentiment_analyzer, toxicity_analyzer, tokenizer, model = load_models()
 
 def analyze_text(text):
     flagged_words = defaultdict(list)
-    sentiment_scores = []  # Properly initialized
-    toxicity_scores = []  # Properly initialized
+    sentiment_scores = []
+    toxicity_scores = []
 
-    sentences = sent_tokenize(text)
+    # ✅ Ensure NLTK can find the Punkt tokenizer before calling sent_tokenize
+    nltk.data.path.append(NLTK_DATA_DIR)
+
+    sentences = sent_tokenize(text)  # Now should work without LookupError
+
     for sent in sentences:
         sentiment = sentiment_analyzer(sent)[0]  # Extract first element
         toxicity = toxicity_analyzer(sent)[0]  # Extract first element
@@ -49,7 +48,7 @@ def analyze_text(text):
 
         words = word_tokenize(sent)
         for word in words:
-            toxicity_word = toxicity_analyzer(word)[0]  # Extract first element
+            toxicity_word = toxicity_analyzer(word)[0]
             if toxicity_word['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
                 flagged_words[sent].append((word, toxicity_word['score']))
 
@@ -82,7 +81,7 @@ def extract_text_from_docx(docx_file):
     text = "\n".join([para.text for para in doc.paragraphs])
     return text
 
-# Streamlit UI
+# ✅ Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
 st.write("Ensure legal submissions are neutral and constructive using AI.")
 
