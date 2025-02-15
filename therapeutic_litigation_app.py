@@ -1,18 +1,16 @@
 import streamlit as st
 import os
 import torch
-import nltk
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 from nltk.tokenize import sent_tokenize
+import nltk
 
 # ✅ Ensure persistent NLTK data storage
 NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(NLTK_DATA_DIR, exist_ok=True)
-
-# ✅ Explicitly add custom path to nltk data
 nltk.data.path.append(NLTK_DATA_DIR)
 
-# ✅ Force-download the Punkt tokenizer if not available
+# ✅ Download Punkt tokenizer if not available
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -20,7 +18,7 @@ except LookupError:
 
 @st.cache_resource
 def load_models():
-    """Load AI models for sentiment, toxicity, and text rewriting."""
+    """Load AI models for sentiment analysis, toxicity detection, and rewriting."""
     sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english", device=0 if torch.cuda.is_available() else -1)
     toxicity_analyzer = pipeline("text-classification", model="facebook/roberta-hate-speech-dynabench-r4-target", device=0 if torch.cuda.is_available() else -1)
     rewrite_model_name = "facebook/bart-large-cnn"
@@ -34,7 +32,7 @@ sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model = load_models()
 def analyze_text(text):
     """Use AI to analyze sentiment and toxicity of each sentence."""
     nltk.data.path.append(NLTK_DATA_DIR)  # ✅ Ensure correct path before using sent_tokenize
-    sentences = sent_tokenize(text)  # ✅ Now should work without LookupError
+    sentences = sent_tokenize(text)
 
     results = []
     for sent in sentences:
@@ -44,21 +42,21 @@ def analyze_text(text):
 
     return results
 
-def rewrite_text(text):
-    """Use AI to generate a neutral and professional version of the input text."""
-    input_prompt = f"Rewrite the following legal text in a professional and neutral tone: {text}"
-    inputs = tokenizer(input_prompt, return_tensors="pt", max_length=1024, truncation=True)
-    summary_ids = rewrite_model.generate(inputs.input_ids, max_length=250, min_length=100, length_penalty=2.0, num_beams=4)
-    rewritten_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-    
-    return rewritten_text
-
 def rewrite_sentence(sentence):
-    """Use AI to rewrite a single sentence into a professional tone."""
-    input_prompt = f"Rewrite this sentence in a neutral and professional tone: {sentence}"
+    """Use AI to rewrite a single sentence into a neutral and professional tone."""
+    input_prompt = f"Rewrite this legal sentence in a neutral and professional tone: {sentence}"
     inputs = tokenizer(input_prompt, return_tensors="pt", max_length=512, truncation=True)
     summary_ids = rewrite_model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
     return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+
+def rewrite_text(text):
+    """Use AI to generate a full neutral and professional rewrite of the input text."""
+    input_prompt = f"Rewrite the following legal document in a professional and neutral tone: {text}"
+    inputs = tokenizer(input_prompt, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = rewrite_model.generate(inputs.input_ids, max_length=300, min_length=150, length_penalty=2.0, num_beams=4)
+    rewritten_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    
+    return rewritten_text
 
 # ✅ Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
@@ -73,13 +71,13 @@ if st.button("Analyze & Rewrite"):
         analysis_results = analyze_text(user_text)
         rewritten_text = rewrite_text(user_text)
 
-        # ✅ Display Sentences and Rewording
-        st.markdown("## 🧐 Sentence-by-Sentence AI Analysis & Rewriting")
+        # ✅ Display Sentences and AI-Rewritten Suggestions
+        st.markdown("## 🧐 AI Analysis & Sentence-by-Sentence Rewriting")
 
         for original_sentence, sentiment_result, toxicity_result in analysis_results:
             rewritten_sentence = rewrite_sentence(original_sentence)
 
-            # 🔸 Display problematic sentences if flagged by AI
+            # 🔸 Display only problematic sentences
             if sentiment_result["label"] == "NEGATIVE" or toxicity_result["label"] in ["toxic", "insult", "threat", "identity_hate"]:
                 st.markdown("### 🚨 Issue Identified")
                 st.write(f"**Before:** {original_sentence}")
@@ -87,7 +85,7 @@ if st.button("Analyze & Rewrite"):
                 st.write(f"**Toxicity:** {toxicity_result['label']} (Confidence: {toxicity_result['score']:.2f})")
 
                 # 🔹 Suggested Rewrite
-                st.markdown("### ✅ Suggested Rewording")
+                st.markdown("### ✅ AI-Suggested Rewording")
                 st.write(f"**After:** {rewritten_sentence}")
                 st.write("---")
 
