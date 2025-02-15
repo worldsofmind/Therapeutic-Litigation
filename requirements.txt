@@ -2,5 +2,3 @@ streamlit
 torch
 transformers
 sentencepiece
-protobuf
-openai>=1.0.0
