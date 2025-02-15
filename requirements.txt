@@ -3,4 +3,4 @@ torch
 transformers
 sentencepiece
 protobuf
-openai  # Add if using GPT-4
+openai>=1.0.0
