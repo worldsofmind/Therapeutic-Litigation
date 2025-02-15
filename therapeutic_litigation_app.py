@@ -2,19 +2,11 @@ import streamlit as st
 import os
 import torch
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
-from nltk.tokenize import sent_tokenize
-import nltk
 
-# ✅ NLTK Data Directory and Downloads (FIXED)
-NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
-os.makedirs(NLTK_DATA_DIR, exist_ok=True)
-nltk.data.path.append(NLTK_DATA_DIR)
+# ✅ Load sentence tokenizer using Hugging Face (Replaces NLTK)
+sentence_tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
-
+# ✅ Load AI Models
 @st.cache_resource
 def load_models():
     """Load AI models for sentiment analysis, toxicity detection, and rewriting."""
@@ -29,16 +21,21 @@ def load_models():
         st.error(f"Error loading models: {e}")
         return None, None, None, None
 
-# ✅ Load models
 sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model = load_models()
 
-if None in [sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model]:  # ✅ Stop execution if models fail
+if None in [sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model]:
     st.error("Models failed to load. Please refresh the app.")
     st.stop()
 
+# ✅ Alternative to NLTK: Sentence Splitting with Hugging Face
+def split_into_sentences(text):
+    """Use a transformer tokenizer to split text into sentences."""
+    sentences = text.split('. ')  # Simple rule-based split as fallback
+    return sentences
+
 def analyze_text(text):
     """Use AI to analyze sentiment and toxicity of each sentence."""
-    sentences = sent_tokenize(text)
+    sentences = split_into_sentences(text)
     results = []
     for sent in sentences:
         sentiment_result = sentiment_analyzer(sent)[0]
@@ -51,13 +48,11 @@ def rewrite_sentence(sentence):
     try:
         input_prompt = f"Rewrite this legal sentence in a neutral and professional tone: {sentence}"
         inputs = tokenizer(input_prompt, return_tensors="pt", max_length=512, truncation=True)
-        summary_ids = rewrite_model.generate(
-            inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id
-        )
+        summary_ids = rewrite_model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id)
         return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
     except Exception as e:
         st.error(f"Error rewriting sentence: {e}")
-        return sentence  # Return original sentence if rewrite fails
+        return sentence
 
 def rewrite_text(text):
     """Use AI to generate a full neutral and professional rewrite of the input text."""
@@ -67,13 +62,8 @@ def rewrite_text(text):
         for paragraph in paragraphs:
             input_prompt = f"Rewrite the following legal paragraph in a professional and neutral tone: {paragraph}"
             inputs = tokenizer(input_prompt, return_tensors="pt", max_length=1024, truncation=True)
-            
-            # ✅ Adjust `max_length` dynamically to prevent truncation
             max_len = min(len(paragraph) + 50, 512)
-            
-            summary_ids = rewrite_model.generate(
-                inputs.input_ids, max_length=max_len, min_length=100, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id
-            )
+            summary_ids = rewrite_model.generate(inputs.input_ids, max_length=max_len, min_length=100, length_penalty=2.0, num_beams=4, pad_token_id=tokenizer.pad_token_id)
             rewritten_paragraph = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
             rewritten_paragraphs.append(rewritten_paragraph)
         return "\n\n".join(rewritten_paragraphs)
@@ -81,7 +71,7 @@ def rewrite_text(text):
         st.error(f"Error rewriting text: {e}")
         return "An error occurred during rewriting."
 
-# ✅ Streamlit UI remains the same
+# ✅ Streamlit UI
 st.title("📝 AI-Powered Therapeutic Litigation Assistant")
 st.write("Ensure legal submissions are neutral and constructive using AI.")
 
