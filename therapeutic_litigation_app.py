@@ -33,20 +33,20 @@ sentiment_analyzer, toxicity_analyzer, tokenizer, model = load_models()
 
 def analyze_text(text):
     flagged_words = defaultdict(list)
-    sentiment_scores =  # Corrected: Initialized as an empty list
-    toxicity_scores =    # Corrected: Initialized as an empty list
+    sentiment_scores = []  # Corrected: Properly initialized as an empty list
+    toxicity_scores = []    # Corrected: Properly initialized as an empty list
 
     sentences = sent_tokenize(text)
     for sent in sentences:
-        sentiment = sentiment_analyzer(sent)  # Access the first element
-        toxicity = toxicity_analyzer(sent)    # Access the first element
+        sentiment = sentiment_analyzer(sent)[0]  # Access the first element
+        toxicity = toxicity_analyzer(sent)[0]    # Access the first element
 
         sentiment_scores.append(sentiment)
         toxicity_scores.append(toxicity)
 
         words = word_tokenize(sent)
         for word in words:
-            toxicity_word = toxicity_analyzer(word)  # Access the first element
+            toxicity_word = toxicity_analyzer(word)[0]  # Access the first element
             if toxicity_word['label'] in ['toxic', 'severe_toxic', 'insult', 'threat', 'identity_hate']:
                 flagged_words[sent].append((word, toxicity_word['score']))
 
@@ -58,7 +58,7 @@ def highlight_text(text, flagged_words):
     for sentence, flagged_data in flagged_words.items():
         for word, score in flagged_data:
             idx = text.find(word, text.find(sentence))  # Find within the sentence
-            if idx!= -1:
+            if idx != -1:
                 idx += offset
                 highlighted_text = (
                     highlighted_text[:idx]
@@ -71,7 +71,7 @@ def highlight_text(text, flagged_words):
 def suggest_rewording(text, context=""):  # Added context parameter
     inputs = tokenizer("Rewrite this in a more neutral and respectful way for a legal document: " + context + " " + text, return_tensors="pt", max_length=1024, truncation=True)  # Increased max length
     summary_ids = model.generate(inputs.input_ids, max_length=150, min_length=50, length_penalty=2.0, num_beams=4)
-    reworded_text = tokenizer.decode(summary_ids, skip_special_tokens=True)  # Decode the first generated sequence
+    reworded_text = tokenizer.decode(summary_ids[0], skip_special_tokens=True)  # Decode the first generated sequence
     return reworded_text
 
 def extract_text_from_docx(docx_file):
@@ -108,7 +108,7 @@ if input_option == "Text Box":
             st.warning("Please enter some text to analyze.")
 
 elif input_option == "Upload Word Document":
-    uploaded_file = st.file_uploader("Upload a.docx file", type=["docx"])
+    uploaded_file = st.file_uploader("Upload a .docx file", type=["docx"])
     if uploaded_file is not None:
         user_text = extract_text_from_docx(uploaded_file)
         flagged_words, sentiment_scores, toxicity_scores = analyze_text(user_text)
