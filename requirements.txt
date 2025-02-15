@@ -3,3 +3,4 @@ torch
 transformers
 sentencepiece
 protobuf
+openai  # Add if using GPT-4
