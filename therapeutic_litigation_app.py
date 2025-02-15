@@ -5,11 +5,18 @@ import nltk
 from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 from nltk.tokenize import sent_tokenize
 
-# ✅ Ensure NLTK resources are available
+# ✅ Ensure persistent NLTK data storage
 NLTK_DATA_DIR = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(NLTK_DATA_DIR, exist_ok=True)
+
+# ✅ Explicitly add custom path to nltk data
 nltk.data.path.append(NLTK_DATA_DIR)
-nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
+
+# ✅ Force-download the Punkt tokenizer if not available
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', download_dir=NLTK_DATA_DIR, quiet=True)
 
 @st.cache_resource
 def load_models():
@@ -25,10 +32,11 @@ def load_models():
 sentiment_analyzer, toxicity_analyzer, tokenizer, rewrite_model = load_models()
 
 def analyze_text(text):
-    """Use AI to analyze sentiment and toxicity of the input text."""
-    sentences = sent_tokenize(text)
-    results = []
+    """Use AI to analyze sentiment and toxicity of each sentence."""
+    nltk.data.path.append(NLTK_DATA_DIR)  # ✅ Ensure correct path before using sent_tokenize
+    sentences = sent_tokenize(text)  # ✅ Now should work without LookupError
 
+    results = []
     for sent in sentences:
         sentiment_result = sentiment_analyzer(sent)[0]
         toxicity_result = toxicity_analyzer(sent)[0]
