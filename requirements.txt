@@ -1,6 +1,5 @@
 streamlit
 torch
 transformers
-nltk
 sentencepiece
 protobuf
