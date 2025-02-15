@@ -1,49 +1,43 @@
-import os
 import streamlit as st
-import openai
+import requests
+import os
 
-# ✅ Set API Key for OpenAI Free GPT (GPT-3.5 Turbo)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Ensure API key is set in environment variables
+# ✅ Hugging Face API Key (Free Models)
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")  # Ensure API key is set in environment variables
 
-if not OPENAI_API_KEY:
-    st.error("⚠️ OpenAI API key is missing. Set it as an environment variable before running the app.")
+if not HUGGINGFACE_API_KEY:
+    st.error("⚠️ Hugging Face API key is missing. Set it as an environment variable before running the app.")
     st.stop()
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-# ✅ Function to Identify Negative Sentences (Using Free GPT)
+# ✅ Function to Identify Negative Sentences (Using Mistral 7B)
 def identify_negative_statements(text):
-    """Uses GPT-3.5 Turbo to detect aggressive or negative statements in the text."""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an expert in sentiment analysis and legal writing."},
-                {"role": "user", "content": f"Identify sentences in the following text that contain aggressive, negative, or hostile language:\n\n{text}"}
-            ],
-            temperature=0.5,
-            max_tokens=500
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error analyzing text: {e}"
+    """Uses Mistral 7B to detect aggressive or negative statements in the text."""
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct"
+    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+    payload = {"inputs": f"Identify sentences in the following text that contain aggressive, negative, or hostile language:\n\n{text}",
+               "parameters": {"max_length": 500, "num_return_sequences": 1}}
+    
+    response = requests.post(API_URL, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()[0]["generated_text"]
+    else:
+        return f"Error: {response.json()}"
 
-# ✅ Function to Rewrite Text (Using Free GPT)
-def rewrite_text_gpt(text):
-    """Uses GPT-3.5 Turbo to rewrite text in a professional, neutral tone."""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an expert in legal writing. Rewrite text to be professional and neutral."},
-                {"role": "user", "content": f"Rewrite this legal document in a more professional and neutral tone:\n\n{text}"}
-            ],
-            temperature=0.5,
-            max_tokens=500
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error rewriting text with GPT-3.5 Turbo: {e}"
+# ✅ Function to Rewrite Text (Using Mistral 7B)
+def rewrite_text_mistral(text):
+    """Uses Mistral 7B to rewrite text in a professional, neutral tone."""
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct"
+    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+    payload = {"inputs": f"Rewrite this legal document in a more professional and neutral tone:\n\n{text}",
+               "parameters": {"max_length": 500, "num_return_sequences": 1}}
+
+    response = requests.post(API_URL, headers=headers, json=payload)
+    
+    if response.status_code == 200:
+        return response.json()[0]["generated_text"]
+    else:
+        return f"Error: {response.json()}"
 
 # ✅ Streamlit UI
 st.title("📝 Free AI-Powered Legal Writing Assistant")
@@ -70,7 +64,7 @@ use_ai_rewriting = st.radio("Would you like AI to rewrite the text for you?", ["
 
 if use_ai_rewriting == "Yes":
     if user_text:
-        rewritten_text = rewrite_text_gpt(user_text)
+        rewritten_text = rewrite_text_mistral(user_text)
         st.markdown("### ✅ AI-Rewritten Version")
         st.write(rewritten_text)
     else:
