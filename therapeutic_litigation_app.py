@@ -1,68 +1,72 @@
 import streamlit as st
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from textblob import TextBlob
+from better_profanity import profanity
 import re
 
-# ✅ Load VADER Sentiment Analyzer
+# ✅ Load Sentiment & Profanity Filters
 analyzer = SentimentIntensityAnalyzer()
+CUSTOM_PROFANITY = ["scammer", "thief", "fraud", "idiot", "lazy", "moron"]
+profanity.load_censor_words(CUSTOM_PROFANITY)
 
-# ✅ Function to Detect Aggressive Sentences
+# ✅ Function to Detect Negative/Aggressive Sentences
 def analyze_text(text):
-    """Detects aggressive or negative sentiment using VADER."""
+    """Detects aggressive, negative, or unprofessional language."""
     sentences = re.split(r'(?<=[.!?])\s+', text)  # Split text into sentences
     flagged_sentences = []
 
     for sentence in sentences:
-        score = analyzer.polarity_scores(sentence)["compound"]  # VADER sentiment score
-        if score < -0.5:  # Threshold for aggressive/unprofessional language
-            flagged_sentences.append((sentence, score))
+        sentiment_score = analyzer.polarity_scores(sentence)["compound"]
+        is_passive = detect_passive_sentiment(sentence)
+        has_vulgarity = detect_vulgarity(sentence)
+
+        if sentiment_score < -0.5 or is_passive or has_vulgarity:
+            flagged_sentences.append((sentence, sentiment_score, is_passive, has_vulgarity))
 
     return flagged_sentences
 
-# ✅ Function to Highlight Aggressive Words
-def highlight_text(text):
-    """Highlights aggressive words detected by VADER."""
-    words = text.split()
-    highlighted_text = " ".join(
-        [f'**🔴 {word} 🔴**' if analyzer.polarity_scores(word)["compound"] < -0.5 else word for word in words]
-    )
-    return highlighted_text
+# ✅ Function to Detect Passive Sentiment
+def detect_passive_sentiment(text):
+    """Checks if sentiment is weak (passive) instead of aggressive."""
+    blob = TextBlob(text)
+    if -0.3 < blob.sentiment.polarity < 0.3:  # Low polarity means neutral/passive
+        return True
+    return False
+
+# ✅ Function to Detect Profanity
+def detect_vulgarity(text):
+    """Checks if text contains profanity or offensive words."""
+    return profanity.contains_profanity(text)
 
 # ✅ Streamlit UI
-st.title("📝 AI-Powered Litigation Assistant (Using VADER)")
-st.write("Identify aggressive language and unprofessional tone in legal case submissions.")
+st.title("📝 AI-Powered Litigation Assistant (Now Detecting Passive & Vulgar Language)")
+st.write("Identify aggressive, passive, and unprofessional tone in legal case submissions.")
 
 # 🔹 Step 1: User Inputs Legal Case Submission
-st.markdown("## Step 1: Identify Aggressive Language & Legal Tone Issues")
+st.markdown("## Step 1: Identify Language Issues")
 user_text = st.text_area("Enter your legal submission for analysis:")
 
 if st.button("Analyze Text"):
     if user_text:
         flagged_sentences = analyze_text(user_text)
-        highlighted_text = highlight_text(user_text)
 
-        st.markdown("### 🔍 Flagged Sentences & Required Rewriting")
+        st.markdown("### 🔍 Flagged Sentences & Issues")
         if flagged_sentences:
-            for sent, score in flagged_sentences:
-                st.markdown(f"- **{sent}** _(Aggressiveness Score: {score})_")
+            for sent, score, is_passive, has_vulgarity in flagged_sentences:
+                issues = []
+                if score < -0.5:
+                    issues.append("Aggressive Tone")
+                if is_passive:
+                    issues.append("Passive Tone")
+                if has_vulgarity:
+                    issues.append("Vulgar Language")
+                
+                issue_text = ", ".join(issues)
+                st.markdown(f"- **{sent}** _(Issues: {issue_text}, Score: {score:.2f})_")
+
             st.warning("⚠️ Please rewrite the above sentences in a more professional and neutral tone before submission.")
         else:
-            st.success("✅ No aggressive language detected.")
+            st.success("✅ No issues detected.")
 
-        st.markdown("### ✏️ Highlighted Aggressive Words")
-        st.write(highlighted_text)
-
-        st.markdown("### ✏️ Your Turn: Rewrite the Flagged Sentences")
-        st.write("You can manually rewrite the flagged sentences below. If you need AI assistance, proceed to Step 2.")
     else:
         st.warning("Please enter some text to analyze.")
-
-# 🔹 Step 2 (Optional): AI-Powered Rewriting (Using GPT4All or Other LLMs)
-st.markdown("## Step 2: AI-Powered Rewriting (Optional)")
-use_ai_rewriting = st.radio("Would you like AI to rewrite the text for you?", ["No", "Yes"])
-
-if use_ai_rewriting == "Yes":
-    if user_text:
-        st.markdown("### ✅ AI-Rewritten Version (Coming Soon)")
-        st.write("AI-generated rewording will be available in the next update.")
-    else:
-        st.warning("Please enter text in Step 1 before using AI to rewrite.")
