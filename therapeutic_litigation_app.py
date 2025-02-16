@@ -15,8 +15,8 @@ profanity.load_censor_words(CUSTOM_PROFANITY)
 # ✅ Fixed Sentence Splitter (No Look-Behind Errors)
 def split_sentences(text):
     """Splits text into sentences while preserving common abbreviations."""
-    abbreviations = r"(Dr|Mr|Ms|Mrs|U\.S|etc|i\.e|e\.g)"
-    sentence_endings = r"(?<!\b" + abbreviations + r")(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s+"
+    abbreviations = r"\b(?:Dr|Mr|Ms|Mrs|U\.S|etc|i\.e|e\.g)\."
+    sentence_endings = r"(?<!{})[.!?]\s+".format(abbreviations)
     
     return re.split(sentence_endings, text)
 
