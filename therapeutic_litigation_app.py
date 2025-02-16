@@ -39,8 +39,8 @@ def detect_vulgarity(text):
     return profanity.contains_profanity(text)
 
 # ✅ Streamlit UI
-st.title("📝 AI-Powered Litigation Assistant (Now Detecting Passive & Vulgar Language)")
-st.write("Identify aggressive, passive, and unprofessional tone in legal case submissions.")
+st.title("📝 AI-Powered Litigation Assistant")
+st.write("Identify aggressive, negative, and unprofessional language in legal case submissions.")
 
 # 🔹 Step 1: User Inputs Legal Case Submission
 st.markdown("## Step 1: Identify Language Issues")
@@ -70,3 +70,4 @@ if st.button("Analyze Text"):
 
     else:
         st.warning("Please enter some text to analyze.")
+
