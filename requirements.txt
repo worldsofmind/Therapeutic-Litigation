@@ -2,3 +2,4 @@ streamlit
 vaderSentiment
 textblob
 better-profanity
+nltk
