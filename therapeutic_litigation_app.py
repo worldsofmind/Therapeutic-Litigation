@@ -12,40 +12,16 @@ CUSTOM_PROFANITY = [
 ]
 profanity.load_censor_words(CUSTOM_PROFANITY)
 
-# ✅ Fixed Sentence Splitter (No Look-Behind Errors)
+# ✅ Custom Sentence Splitter (No `punkt`, No `spaCy`)
 def split_sentences(text):
-    """Splits text into sentences while preserving common abbreviations."""
-    abbreviations = r"\b(?:Dr|Mr|Ms|Mrs|U\.S|etc|i\.e|e\.g)\."
-    sentence_endings = r"(?<!{})[.!?]\s+".format(abbreviations)
-    
+    """Splits text into sentences using regex (No punkt, No spaCy)."""
+    sentence_endings = r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s'
     return re.split(sentence_endings, text)
 
-# ✅ Improved Passive Sentiment Detection
-def detect_passive_sentiment(text):
-    """Detects passive sentiment by analyzing polarity and sentence structure."""
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-    words = text.split()
-
-    if len(words) < 5 and -0.2 < polarity < 0.2:
-        return True  
-    elif len(words) >= 5 and -0.3 < polarity < 0.3:
-        return True  
-    return False
-
-# ✅ Improved Profanity Detection
-def detect_vulgarity(text):
-    """Detects vulgar or offensive language using a profanity filter with word boundaries."""
-    words = text.split()
-    for word in words:
-        if profanity.contains_profanity(word):
-            return True
-    return False
-
-# ✅ Improved Text Analysis Function
+# ✅ Function to Detect Negative/Aggressive Sentences
 def analyze_text(text):
     """Detects aggressive, negative, or unprofessional language."""
-    sentences = split_sentences(text)  # ✅ Using improved regex-based sentence splitting
+    sentences = split_sentences(text)  # ✅ Using regex-based sentence splitting
     flagged_sentences = []
 
     for sentence in sentences:
@@ -57,6 +33,22 @@ def analyze_text(text):
             flagged_sentences.append((sentence, sentiment_score, is_passive, has_vulgarity))
 
     return flagged_sentences
+
+# ✅ Function to Detect Passive Sentiment
+def detect_passive_sentiment(text):
+    """Checks if sentiment is weak (passive) instead of aggressive."""
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
+    if len(text.split()) < 5 and -0.2 < polarity < 0.2:
+        return True
+    elif -0.25 < polarity < 0.25:
+        return True
+    return False
+
+# ✅ Function to Detect Profanity
+def detect_vulgarity(text):
+    """Checks if text contains profanity or offensive words."""
+    return profanity.contains_profanity(text)
 
 # ✅ Streamlit UI
 st.title("📝 AI-Powered Litigation Assistant")
