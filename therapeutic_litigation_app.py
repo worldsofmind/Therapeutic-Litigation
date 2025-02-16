@@ -12,7 +12,7 @@ CUSTOM_PROFANITY = [
 ]
 profanity.load_censor_words(CUSTOM_PROFANITY)
 
-# ✅ Custom Sentence Splitter (NO `punkt`, NO `spaCy`)
+# ✅ Custom Sentence Splitter (No `punkt`, No `spaCy`)
 def split_sentences(text):
     """Splits text into sentences using regex (No punkt, No spaCy)."""
     sentence_endings = r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s'
@@ -71,9 +71,6 @@ if st.button("Analyze Text"):
                 st.markdown(f"- **{sent}** _(Issues: {', '.join(filter(None, issues))}, Score: {score:.2f})_")
 
             st.warning("⚠️ Please rewrite the above sentences.")
-
-            if st.button("Re-Analyze After Editing"):
-                st.experimental_rerun()
 
         else:
             st.success("✅ No issues detected.")
