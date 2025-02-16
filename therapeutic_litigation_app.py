@@ -12,10 +12,12 @@ CUSTOM_PROFANITY = [
 ]
 profanity.load_censor_words(CUSTOM_PROFANITY)
 
-# ✅ Improved Sentence Splitter
+# ✅ Fixed Sentence Splitter (No Look-Behind Errors)
 def split_sentences(text):
-    """Splits text into sentences using regex (No punkt, No spaCy)."""
-    sentence_endings = r'(?<!\b(?:Dr|Mr|Ms|Mrs|U\.S|etc|i\.e|e\.g))(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s'
+    """Splits text into sentences while preserving common abbreviations."""
+    abbreviations = r"(Dr|Mr|Ms|Mrs|U\.S|etc|i\.e|e\.g)"
+    sentence_endings = r"(?<!\b" + abbreviations + r")(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s+"
+    
     return re.split(sentence_endings, text)
 
 # ✅ Improved Passive Sentiment Detection
